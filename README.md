@@ -1,5 +1,5 @@
 # ProceduralTexture
-Unity3d atomic single-file script, to generate primitive textures (gradients, shapes) with different blend-modes, layering. Useful for game jam vfx
+Unity3d atomic single-file script, to generate primitive textures (gradients, shapes, noises) with different blend-modes, layering. Useful for game jam vfx
 
 ![image](https://github.com/user-attachments/assets/6fff327d-2ac4-4667-be0f-e95ebb1fd0ea)
 
