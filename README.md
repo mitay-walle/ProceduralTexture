@@ -4,11 +4,14 @@ Unity3d atomic single-file script, to generate primitive textures (gradients, sh
 ![image](https://github.com/user-attachments/assets/6fff327d-2ac4-4667-be0f-e95ebb1fd0ea)
 
 #  Features
+- multplie layers
 - Gradients
 - circle shape
 - grain
 - perlin noise
-- blur
+- blur (C#-based)
+- rgba channels
+- blend modes (override, alpha, additive, multiply)
 
 # Planned
 - make Odin Inspector optional
@@ -18,6 +21,7 @@ Unity3d atomic single-file script, to generate primitive textures (gradients, sh
 - replace slow C# blur with fast GPU/shader-based (stay single-file)
 - more shape layers (stars, rectangles)
 - external image layer
+- HDR blending
   
 <details>
   <summary>More Examples</summary>
