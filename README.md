@@ -22,6 +22,7 @@ Unity3d atomic single-file script, to generate primitive textures (gradients, sh
 - more shape layers (stars, rectangles)
 - external image layer
 - HDR blending
+- export to .png
   
 <details>
   <summary>More Examples</summary>
