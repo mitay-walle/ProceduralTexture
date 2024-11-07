@@ -5,7 +5,7 @@ Unity3d atomic single-file script, to generate primitive textures (gradients, sh
 
 #  Features
 - multplie layers
-- Gradients
+- Gradients (horizontal,vertical, radial, graident mapping by grayscale / single channel)
 - circle shape
 - grain
 - perlin noise
