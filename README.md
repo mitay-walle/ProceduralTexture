@@ -17,6 +17,7 @@ Unity3d atomic single-file script, to generate primitive textures (gradients, sh
 - layer to apply material / shader
 - replace slow C# blur with fast GPU/shader-based (stay single-file)
 - more shape layers (stars, rectangles)
+- external image layer
   
 <details>
   <summary>More Examples</summary>
