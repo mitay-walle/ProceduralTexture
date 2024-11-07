@@ -18,7 +18,9 @@ Unity3d atomic single-file script, to generate primitive textures (gradients, sh
 - replace slow C# blur with fast GPU/shader-based (stay single-file)
 - more shape layers (stars, rectangles)
   
-# Examples
+<details>
+  <summary>More Examples</summary>
+  
 ![image](https://github.com/user-attachments/assets/f09a7da3-5071-49ab-b6e0-2d2c6d13442b)
 ![image](https://github.com/user-attachments/assets/643a8fd1-3d8c-4a3d-8d6e-fa6bbe7f423c)
 ![image](https://github.com/user-attachments/assets/bcb7c9af-09fa-4950-8895-d29767b0be70)
@@ -26,3 +28,5 @@ Unity3d atomic single-file script, to generate primitive textures (gradients, sh
 ![image](https://github.com/user-attachments/assets/2556ca14-4d65-4c62-a17f-4427f9480b4e)
 ![image](https://github.com/user-attachments/assets/a4f4c9c3-01bd-4834-9b02-048ebd6775cf)
 ![image](https://github.com/user-attachments/assets/4fe92fc7-d93c-4921-827e-1c7dad0519c9)
+  
+</details>
