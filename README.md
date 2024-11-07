@@ -13,6 +13,7 @@ Unity3d atomic single-file script, to generate primitive textures (gradients, sh
 - rgba channels
 - blend modes (override, alpha, additive, multiply)
 - immediate tweak and see any texture values dynamicly, without recreation
+- customizable / extendible. Write new Layer if not found one
 
 # Planned
 - make Odin Inspector optional
