@@ -15,6 +15,7 @@ Unity3d atomic single-file script, to generate primitive textures (gradients, sh
 - offset
 - external Texture layer
 - immediate tweak and see any texture values dynamicly, without recreation
+- non-destructive workflow (undo/redo)
 - customizable / extendible. Write new Layer if not found one
 - Gradient gamma curve
 - export to .png
