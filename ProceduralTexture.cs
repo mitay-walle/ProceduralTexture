@@ -346,12 +346,13 @@ namespace GameJam.Plugins.Procedural
 							case Blend.Additive:
 								{
 									c.Colors[index] += result * result.w * _alpha;
+									c.Colors[index] = Vector4.Lerp(before, c.Colors[index], _alpha);
 									break;
 								}
 							case Blend.Multiply:
 								{
-									Vector4 alpha = new(1 - _alpha, 1 - _alpha, 1 - _alpha, 1 - _alpha);
-									c.Colors[index] = c.Colors[index].Multiply(result + alpha);
+									result = c.Colors[index].Multiply(result);
+									c.Colors[index] = Vector4.Lerp(before, result, _alpha);
 
 									break;
 								}
