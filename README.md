@@ -19,7 +19,6 @@ Unity3d atomic single-file script, to generate primitive textures (gradients, sh
 
 # Planned
 - make Odin Inspector optional
-- offset
 - rotation?
 - layer to apply material / shader
 - replace slow C# blur with fast GPU/shader-based (stay single-file)
