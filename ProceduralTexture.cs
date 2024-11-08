@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using Sirenix.OdinInspector;
 using UnityEditor;
 using UnityEngine;
@@ -245,6 +246,45 @@ namespace GameJam.Plugins.Procedural
 			}
 		}
 
+		// [Serializable]
+		// public class MaterialLayer : Layer
+		// {
+		// 	[SerializeField, Required, InlineEditor] protected Material _material;
+		// 	protected Color[] colors;
+		//
+		// 	public override void Process(Context c)
+		// 	{
+		// 		if (!_material) return;
+		// 		try
+		// 		{
+		// 			c.Texture.SetPixels(c.Colors);
+		// 		}
+		// 		catch { }
+		// 		c.Texture.Apply();
+		//
+		// 		RenderTexture renderTexture = new RenderTexture(c.Texture.width, c.Texture.height, 0);
+		// 		RenderTexture.active = renderTexture;
+		//
+		// 		Texture main = null;
+		// 		if (_material.HasProperty("_MainTex"))
+		// 		{
+		// 			main = _material.GetTexture("_MainTex");
+		// 		}
+		//
+		// 		Graphics.Blit(main, renderTexture, _material);
+		// 		RenderTexture.active = null;
+		// 		var temp = new Texture2D(c.Texture.width, c.Texture.height);
+		// 		temp.ReadPixels(new Rect(0, 0, renderTexture.width, renderTexture.height), 0, 0);
+		// 		temp.Apply();
+		// 		colors = temp.GetPixels();
+		// 		base.Process(c);
+		// 		DestroyImmediate(temp);
+		// 		DestroyImmediate(renderTexture);
+		// 	}
+		//
+		// 	protected override Color ProcessPixel(Context c) => colors[c.index];
+		// }
+
 		public interface ILayer
 		{
 			void Process(Context context);
@@ -414,6 +454,37 @@ namespace GameJam.Plugins.Procedural
 			AssetDatabase.AddObjectToAsset(_texture, this);
 			AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate);
 #endif
+		}
+
+		[Button, ContextMenu("Export to .png")]
+		private void ExportToPNG()
+		{
+	#if UNITY_EDITOR
+			string path = EditorUtility.SaveFilePanelInProject("Save file", $"{name}_baked", "png", "Choose path to save file");
+
+			if (string.IsNullOrEmpty(path))
+			{
+				Debug.LogError("[ GradientTextureEditor ] EncodeToPNG() save path is empty! canceled", this);
+				return;
+			}
+
+			byte[] bytes = ImageConversion.EncodeToPNG(_texture);
+
+			int length = "Assets".Length;
+			string dataPath = Application.dataPath;
+			dataPath = dataPath.Remove(dataPath.Length - length, length);
+			dataPath += path;
+			File.WriteAllBytes(dataPath, bytes);
+
+			AssetDatabase.SaveAssets();
+			AssetDatabase.Refresh();
+			AssetDatabase.ImportAsset(path);
+			Texture2D texture = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+
+			Debug.Log($"[ GradientTextureEditor ] EncodeToPNG() Success! png-gradient saved at '{path}'", texture);
+			EditorGUIUtility.PingObject(texture);
+			Selection.activeObject = texture;
+	#endif
 		}
 		#if UNITY_EDITOR
 		[NonSerialized] private Context _context;
