@@ -13,6 +13,7 @@ Unity3d atomic single-file script, to generate primitive textures (gradients, sh
 - rgba channels
 - blend modes (override, alpha, additive, multiply)
 - offset
+- external Texture layer
 - immediate tweak and see any texture values dynamicly, without recreation
 - customizable / extendible. Write new Layer if not found one
 
@@ -23,7 +24,6 @@ Unity3d atomic single-file script, to generate primitive textures (gradients, sh
 - layer to apply material / shader
 - replace slow C# blur with fast GPU/shader-based (stay single-file)
 - more shape layers (stars, rectangles)
-- external image layer
 - HDR blending
 - Gradient gamma curve
 - export to .png
