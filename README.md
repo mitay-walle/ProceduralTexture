@@ -18,6 +18,8 @@ Unity3d atomic single-file script, to generate primitive textures (gradients, sh
 - customizable / extendible. Write new Layer if not found one
 - Gradient gamma curve
 - export to .png
+- flat color layer
+- HDR blending
   
 # Planned
 - make Odin Inspector optional
@@ -25,8 +27,6 @@ Unity3d atomic single-file script, to generate primitive textures (gradients, sh
 - layer to apply material / shader
 - replace slow C# blur with fast GPU/shader-based (stay single-file)
 - more shape layers (stars, rectangles)
-- HDR blending
-
   
 <details>
   <summary>More Examples</summary>
