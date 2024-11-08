@@ -173,6 +173,12 @@ namespace GameJam.Plugins.Procedural
 							}
 							return _gradient.Evaluate(_gamma.Evaluate(t));
 						}
+					case UV.Frame:
+						{
+							float t = Mathf.Min(c.x, c.width - c.x, c.y, c.height - c.y) / (float)Mathf.Min(c.width, c.height);
+
+							return _gradient.Evaluate(_gamma.Evaluate(t));
+						}
 					default: throw new ArgumentOutOfRangeException();
 				}
 			}
@@ -183,6 +189,7 @@ namespace GameJam.Plugins.Procedural
 				Vertical,
 				Circle,
 				GradientMap,
+				Frame,
 			}
 
 			public enum GradientMapSource
