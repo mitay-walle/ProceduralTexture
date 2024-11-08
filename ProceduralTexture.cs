@@ -5,6 +5,8 @@ using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using ObjectFieldAlignment = Sirenix.OdinInspector.ObjectFieldAlignment;
 using Random = UnityEngine.Random;
+using System.Linq;
+using System.Reflection;
 
 namespace GameJam.Plugins.Procedural
 {
@@ -19,7 +21,9 @@ namespace GameJam.Plugins.Procedural
 		[SerializeField, OnValueChanged(E), HideIf(nameof(_isSquare))] private PoT _resolutionY = PoT._128;
 		[SerializeField, OnValueChanged(E)] private Color _background = Color.clear;
 
-		[SerializeReference, OnValueChanged(E, true, InvokeOnInitialize = true, InvokeOnUndoRedo = true)]
+		//[DrawWithUnity]
+		[OnValueChanged(E, true, InvokeOnInitialize = true, InvokeOnUndoRedo = true)]
+		[SerializeReference]
 		private ILayer[] _layers = { new Gradient() };
 
 		[Button, HideIf(nameof(_immediate))]
@@ -31,7 +35,7 @@ namespace GameJam.Plugins.Procedural
 
 			foreach (ILayer layer in _layers)
 			{
-				layer.Process(_context);
+				layer?.Process(_context);
 			}
 
 			try
@@ -42,9 +46,6 @@ namespace GameJam.Plugins.Procedural
 			_texture.Apply();
 			#if UNITY_EDITOR
 			EditorUtility.SetDirty(_texture);
-			// var temp = _texture;
-			// _texture = null;
-			// EditorApplication.delayCall += () => { _texture = temp; };
 			#endif
 		}
 
@@ -59,43 +60,44 @@ namespace GameJam.Plugins.Procedural
 			[SerializeField] protected bool _skip;
 			[SerializeField, PropertyRange(0, 1)] protected float _alpha = 1;
 			[SerializeField] protected Blend _blend;
+			[SerializeField] protected Vector2 _offset;
 
-			public void Process(Context context)
+			public void Process(Context c)
 			{
 				if (_skip) return;
 
 				int index = 0;
-				for (int y = 0; y < context.height; y++)
+				for (int y = 0; y < c.height; y++)
 				{
-					for (int x = 0; x < context.width; x++)
+					for (int x = 0; x < c.width; x++)
 					{
-						context.x = x;
-						context.y = y;
-						context.index = index;
-						context.Color = context.Colors[index];
-						Color before = context.Color;
-						Color result = ProcessPixel(context);
+						c.x = x + Mathf.RoundToInt(_offset[0] * c.size[0]);
+						c.y = y + Mathf.RoundToInt(_offset[1] * c.size[1]);
+						c.index = index;
+						c.Color = c.Colors[index];
+						Color before = c.Color;
+						Color result = ProcessPixel(c);
 						switch (_blend)
 						{
 							case Blend.Set:
 								{
-									context.Colors[index] = result;
+									c.Colors[index] = result;
 									break;
 								}
 							case Blend.Alpha:
 								{
-									context.Colors[index] = Color.Lerp(before, result, result.a * _alpha);
+									c.Colors[index] = Color.Lerp(before, result, result.a * _alpha);
 									break;
 								}
 							case Blend.Additive:
 								{
-									context.Colors[index] += result * result.a * _alpha;
+									c.Colors[index] += result * result.a * _alpha;
 									break;
 								}
 							case Blend.Multiply:
 								{
 									Color alpha = new(1 - _alpha, 1 - _alpha, 1 - _alpha, 1 - _alpha);
-									context.Colors[index] *= result + alpha;
+									c.Colors[index] *= result + alpha;
 									break;
 								}
 							default: throw new ArgumentOutOfRangeException();
@@ -378,4 +380,61 @@ namespace GameJam.Plugins.Procedural
   #endif
 		}
 	}
+
+#if !ODIN_INSPECTOR
+	[InitializeOnLoad]
+	public class ExtensionContextMenu
+	{
+		static ExtensionContextMenu()
+		{
+			EditorApplication.contextualPropertyMenu -= OnContextualPropertyMenu;
+			EditorApplication.contextualPropertyMenu += OnContextualPropertyMenu;
+		}
+
+		private static void OnContextualPropertyMenu(GenericMenu menu, SerializedProperty property)
+		{
+			Debug.Log("context menu");
+			if (property.isArray) return;
+			if (property.propertyType != SerializedPropertyType.ManagedReference) return;
+			if (GetRealTypeFromTypename(property.managedReferenceFieldTypename) != typeof(ProceduralTexture.ILayer)) { return; }
+
+			var propertyCopy = property.Copy();
+			var types = TypeCache.GetTypesDerivedFrom<ProceduralTexture.ILayer>().Where(t => (t.Attributes & TypeAttributes.Serializable) != 0);
+
+			foreach (Type type in types)
+			{
+				menu.AddItem(new GUIContent($"set to {type.Name}"), false, () =>
+				{
+					propertyCopy.serializedObject.Update();
+
+					foreach (var target in property.serializedObject.targetObjects)
+					{
+						Undo.RegisterCompleteObjectUndo(target, $"change type to {type.Name}");
+					}
+					propertyCopy.managedReferenceValue = Activator.CreateInstance(type);
+					propertyCopy.serializedObject.ApplyModifiedProperties();
+				});
+			}
+		}
+
+		private static (string AssemblyName, string ClassName) GetSplitNamesFromTypename(string typename)
+		{
+			if (string.IsNullOrEmpty(typename))
+				return ("", "");
+
+			var typeSplitString = typename.Split(char.Parse(" "));
+			var typeClassName = typeSplitString[1];
+			var typeAssemblyName = typeSplitString[0];
+			return (typeAssemblyName, typeClassName);
+		}
+
+		// Gets real type of managed reference's field typeName
+		private static Type GetRealTypeFromTypename(string stringType)
+		{
+			var names = GetSplitNamesFromTypename(stringType);
+			var realType = Type.GetType($"{names.ClassName}, {names.AssemblyName}");
+			return realType;
+		}
+	}
+#endif
 }
