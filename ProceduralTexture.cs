@@ -62,7 +62,7 @@ namespace GameJam.Plugins.Procedural
 			[SerializeField] protected Blend _blend;
 			[SerializeField] protected Vector2 _offset;
 
-			public void Process(Context c)
+			public virtual void Process(Context c)
 			{
 				if (_skip) return;
 
@@ -267,6 +267,51 @@ namespace GameJam.Plugins.Procedural
 			}
 		}
 
+		[Serializable]
+		public class Texture : Layer
+		{
+			[SerializeField, Required] protected Texture2D _texture;
+			[SerializeField, Required] protected Vector4 _tileAndOffset = new(1, 1, 0, 0);
+			protected Texture2D _textureReadable;
+
+			public override void Process(Context c)
+			{
+				if (!_texture) return;
+				_textureReadable = _texture;
+				if (_texture.isReadable)
+				{
+					_textureReadable = _texture;
+				}
+				else
+				{
+					byte[] tmp = _texture.GetRawTextureData();
+					if (_textureReadable == null)
+					{
+						_textureReadable = new Texture2D(_texture.width, _texture.height);
+					}
+					else
+					{
+						_textureReadable.Reinitialize(_texture.width, _texture.height);
+					}
+
+					_textureReadable.LoadRawTextureData(tmp);
+				}
+				base.Process(c);
+				if (_textureReadable != _texture)
+				{
+					Destroy(_textureReadable);
+				}
+			}
+
+			protected override Color ProcessPixel(Context c)
+			{
+				if (!_texture) return c.Color;
+				if (!_texture.isReadable) return c.Color;
+				float x = ((float)c.x / c.width + _tileAndOffset[2]) * _tileAndOffset[0];
+				float y = ((float)c.y / c.height + _tileAndOffset[3]) * _tileAndOffset[1];
+				return _textureReadable.GetPixelBilinear(x, y);
+			}
+		}
 		public struct Context
 		{
 			public Color[] Colors;
