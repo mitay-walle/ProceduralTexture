@@ -31,7 +31,7 @@ namespace GameJam.Plugins.Procedural
 		{
 			if (!_texture) return;
 			if (_layers is not { Length: > 0 }) return;
-			_context = new Context(_resolution, _isSquare, _resolutionY, _background);
+			_context = new Context(_resolution, _isSquare, _resolutionY, _background, _texture);
 
 			foreach (ILayer layer in _layers)
 			{
@@ -47,75 +47,6 @@ namespace GameJam.Plugins.Procedural
 			#if UNITY_EDITOR
 			EditorUtility.SetDirty(_texture);
 			#endif
-		}
-
-		public interface ILayer
-		{
-			void Process(Context context);
-		}
-
-		[Serializable]
-		public abstract class Layer : ILayer
-		{
-			[SerializeField] protected bool _skip;
-			[SerializeField, PropertyRange(0, 1)] protected float _alpha = 1;
-			[SerializeField] protected Blend _blend;
-			[SerializeField] protected Vector2 _offset;
-
-			public virtual void Process(Context c)
-			{
-				if (_skip) return;
-
-				int index = 0;
-				for (int y = 0; y < c.height; y++)
-				{
-					for (int x = 0; x < c.width; x++)
-					{
-						c.x = x + Mathf.RoundToInt(_offset[0] * c.size[0]);
-						c.y = y + Mathf.RoundToInt(_offset[1] * c.size[1]);
-						c.index = index;
-						c.Color = c.Colors[index];
-						Color before = c.Color;
-						Color result = ProcessPixel(c);
-						switch (_blend)
-						{
-							case Blend.Set:
-								{
-									c.Colors[index] = result;
-									break;
-								}
-							case Blend.Alpha:
-								{
-									c.Colors[index] = Color.Lerp(before, result, result.a * _alpha);
-									break;
-								}
-							case Blend.Additive:
-								{
-									c.Colors[index] += result * result.a * _alpha;
-									break;
-								}
-							case Blend.Multiply:
-								{
-									Color alpha = new(1 - _alpha, 1 - _alpha, 1 - _alpha, 1 - _alpha);
-									c.Colors[index] *= result + alpha;
-									break;
-								}
-							default: throw new ArgumentOutOfRangeException();
-						}
-						index++;
-					}
-				}
-			}
-
-			protected abstract Color ProcessPixel(Context c);
-
-			public enum Blend
-			{
-				Set,
-				Alpha,
-				Additive,
-				Multiply,
-			}
 		}
 
 		[Serializable]
@@ -196,6 +127,7 @@ namespace GameJam.Plugins.Procedural
 			//[SerializeField] private bool _isMirror;
 			//[SerializeField, PropertyRange(1, 256)] private int _repeat = 1;
 			[SerializeField] private UnityEngine.Gradient _gradient;
+			[SerializeField] private AnimationCurve _gamma = AnimationCurve.Linear(0, 0, 1, 1);
 
 			protected override Color ProcessPixel(Context c)
 			{
@@ -204,12 +136,12 @@ namespace GameJam.Plugins.Procedural
 					case UV.Horizontal:
 						{
 							float t = (float)c.x / c.width;
-							return _gradient.Evaluate(t);
+							return _gradient.Evaluate(_gamma.Evaluate(t));
 						}
 					case UV.Vertical:
 						{
 							float t = (float)c.y / c.height;
-							return _gradient.Evaluate(t);
+							return _gradient.Evaluate(_gamma.Evaluate(t));
 						}
 					case UV.Circle:
 						{
@@ -219,7 +151,7 @@ namespace GameJam.Plugins.Procedural
 							Vector2 point = new Vector2(c.x, c.y);
 							float distance = Vector2.Distance(point, center);
 							float t = 1 - (distance / radius);
-							return _gradient.Evaluate(t);
+							return _gradient.Evaluate(_gamma.Evaluate(t));
 						}
 					case UV.GradientMap:
 						{
@@ -238,7 +170,7 @@ namespace GameJam.Plugins.Procedural
 									}
 								default: throw new ArgumentOutOfRangeException();
 							}
-							return _gradient.Evaluate(t);
+							return _gradient.Evaluate(_gamma.Evaluate(t));
 						}
 					default: throw new ArgumentOutOfRangeException();
 				}
@@ -268,7 +200,7 @@ namespace GameJam.Plugins.Procedural
 		}
 
 		[Serializable]
-		public class Texture : Layer
+		public class TextureLayer : Layer
 		{
 			[SerializeField, Required] protected Texture2D _texture;
 			[SerializeField, Required] protected Vector4 _tileAndOffset = new(1, 1, 0, 0);
@@ -299,7 +231,7 @@ namespace GameJam.Plugins.Procedural
 				base.Process(c);
 				if (_textureReadable != _texture)
 				{
-					Destroy(_textureReadable);
+					DestroyImmediate(_textureReadable);
 				}
 			}
 
@@ -312,9 +244,80 @@ namespace GameJam.Plugins.Procedural
 				return _textureReadable.GetPixelBilinear(x, y);
 			}
 		}
+
+		public interface ILayer
+		{
+			void Process(Context context);
+		}
+
+		[Serializable]
+		public abstract class Layer : ILayer
+		{
+			[SerializeField] protected bool _skip;
+			[SerializeField, PropertyRange(0, 1)] protected float _alpha = 1;
+			[SerializeField] protected Blend _blend;
+			[SerializeField] protected Vector2 _offset;
+
+			public virtual void Process(Context c)
+			{
+				if (_skip) return;
+
+				int index = 0;
+				for (int y = 0; y < c.height; y++)
+				{
+					for (int x = 0; x < c.width; x++)
+					{
+						c.x = x + Mathf.RoundToInt(_offset[0] * c.size[0]);
+						c.y = y + Mathf.RoundToInt(_offset[1] * c.size[1]);
+						c.index = index;
+						c.Color = c.Colors[index];
+						Color before = c.Color;
+						Color result = ProcessPixel(c);
+						switch (_blend)
+						{
+							case Blend.Set:
+								{
+									c.Colors[index] = result;
+									break;
+								}
+							case Blend.Alpha:
+								{
+									c.Colors[index] = Color.Lerp(before, result, result.a * _alpha);
+									break;
+								}
+							case Blend.Additive:
+								{
+									c.Colors[index] += result * result.a * _alpha;
+									break;
+								}
+							case Blend.Multiply:
+								{
+									Color alpha = new(1 - _alpha, 1 - _alpha, 1 - _alpha, 1 - _alpha);
+									c.Colors[index] *= result + alpha;
+									break;
+								}
+							default: throw new ArgumentOutOfRangeException();
+						}
+						index++;
+					}
+				}
+			}
+
+			protected abstract Color ProcessPixel(Context c);
+
+			public enum Blend
+			{
+				Set,
+				Alpha,
+				Additive,
+				Multiply,
+			}
+		}
+
 		public struct Context
 		{
 			public Color[] Colors;
+			public Texture2D Texture;
 			public int index;
 			public int x;
 			public int y;
@@ -325,7 +328,7 @@ namespace GameJam.Plugins.Procedural
 			public int length => width * height;
 			public Vector2Int size => new(width, height);
 
-			public Context(PoT width, bool isSquare, PoT height, Color background)
+			public Context(PoT width, bool isSquare, PoT height, Color background, Texture2D texture)
 			{
 				this.width = (int)width;
 				this.height = isSquare ? (int)width : (int)height;
@@ -335,6 +338,7 @@ namespace GameJam.Plugins.Procedural
 				Background = background;
 				Color = Color.clear;
 				Colors = default;
+				Texture = texture;
 				Colors = new Color[length];
 				for (int i = 0; i < length; i++)
 				{
@@ -370,13 +374,14 @@ namespace GameJam.Plugins.Procedural
 
 			if (!_texture)
 			{
-				_context = new Context(_resolution, _isSquare, _resolutionY, _background);
+				_context = new Context(_resolution, _isSquare, _resolutionY, _background, _texture);
 
 #if UNITY_2018
                 _texture = new Texture2D(_context.width, _context.height);
 #else
 				_texture = new Texture2D(_context.width, _context.height, DefaultFormat.LDR, TextureCreationFlags.None);
 #endif
+				_context.Texture = _texture;
 				if (_texture.name != name) _texture.name = name;
 			}
 
@@ -388,7 +393,7 @@ namespace GameJam.Plugins.Procedural
 			}
 			else
 			{
-				_context = new Context(_resolution, _isSquare, _resolutionY, _background);
+				_context = new Context(_resolution, _isSquare, _resolutionY, _background, _texture);
 
 				if (_texture.width != _context.width || _texture.height != _context.height)
 				{
