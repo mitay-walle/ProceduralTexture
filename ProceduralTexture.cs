@@ -20,7 +20,7 @@ namespace GameJam.Plugins.Procedural
 		[SerializeField, OnValueChanged(E)] private bool _isSquare = true;
 		[SerializeField, OnValueChanged(E)] private PoT _resolution = PoT._128;
 		[SerializeField, OnValueChanged(E), HideIf(nameof(_isSquare))] private PoT _resolutionY = PoT._128;
-		[SerializeField, OnValueChanged(E)] private Color _background = Color.clear;
+		[SerializeField, OnValueChanged(E), ColorUsage(true)] private Color _background = Color.clear;
 
 		//[DrawWithUnity]
 		[OnValueChanged(E, true, InvokeOnInitialize = true, InvokeOnUndoRedo = true)]
@@ -41,7 +41,7 @@ namespace GameJam.Plugins.Procedural
 
 			try
 			{
-				_texture.SetPixels(_context.Colors);
+				_texture.SetPixels(_context.Colors.Select(v => (Color)v).ToArray());
 			}
 			catch { }
 			_texture.Apply();
@@ -55,9 +55,9 @@ namespace GameJam.Plugins.Procedural
 		{
 			[SerializeField, Delayed] private int blurSize = 4;
 
-			protected override Color ProcessPixel(Context c)
+			protected override Vector4 ProcessPixel(Context c)
 			{
-				Color avgColor = Color.clear;
+				Vector4 avgColor = default;
 				int count = 0;
 
 				for (int offsetY = -blurSize; offsetY <= blurSize; offsetY++)
@@ -79,13 +79,13 @@ namespace GameJam.Plugins.Procedural
 		[Serializable]
 		public class Grain : Layer
 		{
-			[SerializeField, HorizontalGroup, HideLabel] private Color min = Color.clear;
-			[SerializeField, HorizontalGroup, HideLabel] private Color max = Color.white;
+			[SerializeField, HorizontalGroup, HideLabel, ColorUsage(true)] private Color min = Color.clear;
+			[SerializeField, HorizontalGroup, HideLabel, ColorUsage(true)] private Color max = Color.white;
 			[SerializeField, PropertyRange(0, 1)] private float _amount = .5f;
 			[SerializeField] private bool _reseed = true;
 			[SerializeField, HideIf(nameof(_reseed))] private int _seed;
 
-			protected override Color ProcessPixel(Context c)
+			protected override Vector4 ProcessPixel(Context c)
 			{
 				Random.State old = default;
 				if (!_reseed)
@@ -101,19 +101,30 @@ namespace GameJam.Plugins.Procedural
 		}
 
 		[Serializable]
+		public class ColorLayer : Layer
+		{
+			[SerializeField, HorizontalGroup, HideLabel, ColorUsage(true)] private Color Color = Color.white;
+
+			protected override Vector4 ProcessPixel(Context c)
+			{
+				return Color;
+			}
+		}
+
+		[Serializable]
 		public class Perlin : Layer
 		{
-			[SerializeField, HorizontalGroup, HideLabel] private Color min = Color.clear;
-			[SerializeField, HorizontalGroup, HideLabel] private Color max = Color.white;
+			[SerializeField, HorizontalGroup, HideLabel, ColorUsage(true)] private Color min = Color.clear;
+			[SerializeField, HorizontalGroup, HideLabel, ColorUsage(true)] private Color max = Color.white;
 			[SerializeField] private Vector2 _uv = new(1, 1);
 			[SerializeField] private AnimationCurve _gamma = AnimationCurve.Linear(0, 0, 1, 1);
 			[SerializeField] private Vector2 _remap = new(0, 1);
 
-			protected override Color ProcessPixel(Context c)
+			protected override Vector4 ProcessPixel(Context c)
 			{
 				float t = Mathf.LerpUnclamped(_remap.x, _remap.y, Mathf.PerlinNoise((float)c.x / c.width * _uv.x, (float)c.y / c.height * _uv.y));
 
-				return Color.LerpUnclamped(min, max, _gamma.Evaluate(t));
+				return Vector4.LerpUnclamped(min, max, _gamma.Evaluate(t));
 			}
 		}
 
@@ -127,10 +138,10 @@ namespace GameJam.Plugins.Procedural
 			private RGBA _channel;
 			//[SerializeField] private bool _isMirror;
 			//[SerializeField, PropertyRange(1, 256)] private int _repeat = 1;
-			[SerializeField] private UnityEngine.Gradient _gradient;
+			[SerializeField, GradientUsage(true)] private UnityEngine.Gradient _gradient;
 			[SerializeField] private AnimationCurve _gamma = AnimationCurve.Linear(0, 0, 1, 1);
 
-			protected override Color ProcessPixel(Context c)
+			protected override Vector4 ProcessPixel(Context c)
 			{
 				switch (_uv)
 				{
@@ -161,12 +172,12 @@ namespace GameJam.Plugins.Procedural
 							{
 								case GradientMapSource.Grayscale:
 									{
-										t = c.Color.grayscale;
+										t = c.color.ToGrayscale();
 										break;
 									}
 								case GradientMapSource.Channel:
 									{
-										t = c.Color[(int)_channel];
+										t = c.color[(int)_channel];
 										break;
 									}
 								default: throw new ArgumentOutOfRangeException();
@@ -243,10 +254,10 @@ namespace GameJam.Plugins.Procedural
 				}
 			}
 
-			protected override Color ProcessPixel(Context c)
+			protected override Vector4 ProcessPixel(Context c)
 			{
-				if (!_texture) return c.Color;
-				if (!_texture.isReadable) return c.Color;
+				if (!_texture) return c.color;
+				if (!_texture.isReadable) return c.color;
 				float x = ((float)c.x / c.width + _tileAndOffset[2]) * _tileAndOffset[0];
 				float y = ((float)c.y / c.height + _tileAndOffset[3]) * _tileAndOffset[1];
 				return _textureReadable.GetPixelBilinear(x, y);
@@ -317,9 +328,9 @@ namespace GameJam.Plugins.Procedural
 						c.x = x + Mathf.RoundToInt(_offset[0] * c.size[0]);
 						c.y = y + Mathf.RoundToInt(_offset[1] * c.size[1]);
 						c.index = index;
-						c.Color = c.Colors[index];
-						Color before = c.Color;
-						Color result = ProcessPixel(c);
+						c.color = c.Colors[index];
+						Vector4 before = c.color;
+						Vector4 result = ProcessPixel(c);
 						switch (_blend)
 						{
 							case Blend.Set:
@@ -329,18 +340,19 @@ namespace GameJam.Plugins.Procedural
 								}
 							case Blend.Alpha:
 								{
-									c.Colors[index] = Color.Lerp(before, result, result.a * _alpha);
+									c.Colors[index] = Vector4.Lerp(before, result, result.w * _alpha);
 									break;
 								}
 							case Blend.Additive:
 								{
-									c.Colors[index] += result * result.a * _alpha;
+									c.Colors[index] += result * result.w * _alpha;
 									break;
 								}
 							case Blend.Multiply:
 								{
-									Color alpha = new(1 - _alpha, 1 - _alpha, 1 - _alpha, 1 - _alpha);
-									c.Colors[index] *= result + alpha;
+									Vector4 alpha = new(1 - _alpha, 1 - _alpha, 1 - _alpha, 1 - _alpha);
+									c.Colors[index] = c.Colors[index].Multiply(result + alpha);
+
 									break;
 								}
 							default: throw new ArgumentOutOfRangeException();
@@ -350,7 +362,7 @@ namespace GameJam.Plugins.Procedural
 				}
 			}
 
-			protected abstract Color ProcessPixel(Context c);
+			protected abstract Vector4 ProcessPixel(Context c);
 
 			public enum Blend
 			{
@@ -363,19 +375,19 @@ namespace GameJam.Plugins.Procedural
 
 		public struct Context
 		{
-			public Color[] Colors;
+			public Vector4[] Colors;
 			public Texture2D Texture;
 			public int index;
 			public int x;
 			public int y;
-			public Color Background;
-			public Color Color;
+			public Vector4 Background;
+			public Vector4 color;
 			public int width;
 			public int height;
 			public int length => width * height;
 			public Vector2Int size => new(width, height);
 
-			public Context(PoT width, bool isSquare, PoT height, Color background, Texture2D texture)
+			public Context(PoT width, bool isSquare, PoT height, Vector4 background, Texture2D texture)
 			{
 				this.width = (int)width;
 				this.height = isSquare ? (int)width : (int)height;
@@ -383,10 +395,10 @@ namespace GameJam.Plugins.Procedural
 				x = 0;
 				y = 0;
 				Background = background;
-				Color = Color.clear;
+				color = default;
 				Colors = default;
 				Texture = texture;
-				Colors = new Color[length];
+				Colors = new Vector4[length];
 				for (int i = 0; i < length; i++)
 				{
 					Colors[i] = background;
@@ -506,6 +518,19 @@ namespace GameJam.Plugins.Procedural
 			if (!_texture || _texture.name == name) return;
 			_texture.name = name;
   #endif
+		}
+	}
+
+	public static class Utility
+	{
+		public static Vector4 Multiply(this Vector4 c1, Vector4 c2)
+		{
+			return new(c1[0] * c2[0], c1[1] * c2[1], c1[2] * c2[2], c1[3] * c2[3]);
+		}
+
+		public static float ToGrayscale(this Vector4 color)
+		{
+			return (color[0] + color[1] + color[2] + color[3]) / 4;
 		}
 	}
 
