@@ -13,6 +13,8 @@ Unity3d atomic single-file script, to generate primitive textures (gradients, sh
 - rgba channels
 - blend modes (override, alpha, additive, multiply)
 - offset
+- skip flag
+- layer alpha slider
 - external Texture layer
 - immediate tweak and see any texture values dynamicly, without recreation
 - non-destructive workflow (undo/redo)
