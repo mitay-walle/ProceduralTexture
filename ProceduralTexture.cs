@@ -1,8 +1,10 @@
 using System;
 using System.IO;
+using Sirenix.OdinInspector;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
+using ObjectFieldAlignment = Sirenix.OdinInspector.ObjectFieldAlignment;
 using Random = UnityEngine.Random;
 using System.Linq;
 
@@ -11,20 +13,20 @@ namespace GameJam.Plugins.Procedural
 	[CreateAssetMenu]
 	public sealed class ProceduralTexture : ScriptableObject, ISerializationCallbackReceiver
 	{
-		[SerializeField] private Texture2D _texture;
+		[SerializeField, ReadOnly, PreviewField(ObjectFieldAlignment.Center, Height = 150)] private Texture2D _texture;
 		private const string E = nameof(Execute);
 		[SerializeField] private bool _immediate = true;
-		[SerializeField] private bool _isSquare = true;
-		[SerializeField] private PoT _resolution = PoT._128;
-		[SerializeField] private PoT _resolutionY = PoT._128;
-		[SerializeField, ColorUsage(true)] private Color _background = Color.clear;
+		[SerializeField, OnValueChanged(E)] private bool _isSquare = true;
+		[SerializeField, OnValueChanged(E)] private PoT _resolution = PoT._128;
+		[SerializeField, OnValueChanged(E), HideIf(nameof(_isSquare))] private PoT _resolutionY = PoT._128;
+		[SerializeField, OnValueChanged(E), ColorUsage(true)] private Color _background = Color.clear;
 
+		//[DrawWithUnity]
+		[OnValueChanged(E, true, InvokeOnInitialize = true, InvokeOnUndoRedo = true)]
 		[SerializeReference]
 		private ILayer[] _layers = { new Gradient() };
 
-		[NonSerialized] private Context _context;
-
-		[ContextMenu("Execute")]
+		[Button, HideIf(nameof(_immediate))]
 		private void Execute()
 		{
 			if (!_texture) return;
@@ -78,11 +80,11 @@ namespace GameJam.Plugins.Procedural
 		[Serializable]
 		public class Grain : Layer
 		{
-			[SerializeField, ColorUsage(true)] private Color min = Color.clear;
-			[SerializeField, ColorUsage(true)] private Color max = Color.white;
-			[SerializeField, Range(0, 1)] private float _amount = .5f;
+			[SerializeField, HorizontalGroup, HideLabel, ColorUsage(true)] private Color min = Color.clear;
+			[SerializeField, HorizontalGroup, HideLabel, ColorUsage(true)] private Color max = Color.white;
+			[SerializeField, PropertyRange(0, 1)] private float _amount = .5f;
 			[SerializeField] private bool _reseed = true;
-			[SerializeField] private int _seed;
+			[SerializeField, HideIf(nameof(_reseed))] private int _seed;
 
 			protected override Vector4 ProcessPixel(Context c)
 			{
@@ -102,7 +104,7 @@ namespace GameJam.Plugins.Procedural
 		[Serializable]
 		public class ColorLayer : Layer
 		{
-			[SerializeField, ColorUsage(true, true)] private Color Color = Color.white;
+			[SerializeField, HorizontalGroup, HideLabel, ColorUsage(true)] private Color Color = Color.white;
 
 			protected override Vector4 ProcessPixel(Context c)
 			{
@@ -113,8 +115,8 @@ namespace GameJam.Plugins.Procedural
 		[Serializable]
 		public class Perlin : Layer
 		{
-			[SerializeField,  ColorUsage(true)] private Color min = Color.clear;
-			[SerializeField,  ColorUsage(true)] private Color max = Color.white;
+			[SerializeField, HorizontalGroup, HideLabel, ColorUsage(true)] private Color min = Color.clear;
+			[SerializeField, HorizontalGroup, HideLabel, ColorUsage(true)] private Color max = Color.white;
 			[SerializeField] private Vector2 _uv = new(1, 1);
 			[SerializeField] private AnimationCurve _gamma = AnimationCurve.Linear(0, 0, 1, 1);
 			[SerializeField] private Vector2 _remap = new(0, 1);
@@ -131,9 +133,9 @@ namespace GameJam.Plugins.Procedural
 		public class Gradient : Layer
 		{
 			[SerializeField] private UV _uv;
-			[SerializeField]
+			[SerializeField, ShowIf("@_uv==UV.GradientMap")]
 			private GradientMapSource _source;
-			[SerializeField]
+			[SerializeField, ShowIf("@_uv==UV.GradientMap && _source==GradientMapSource.Channel")]
 			private RGBA _channel;
 
 			//[SerializeField] private bool _isMirror;
@@ -146,60 +148,66 @@ namespace GameJam.Plugins.Procedural
 				switch (_uv)
 				{
 					case UV.Horizontal:
-						{
-							float t = (float)c.x / c.width;
-							return _gradient.Evaluate(_gamma.Evaluate(t));
-						}
+					{
+						float t = (float)c.x / c.width;
+						return _gradient.Evaluate(_gamma.Evaluate(t));
+					}
 
 					case UV.Vertical:
-						{
-							float t = (float)c.y / c.height;
-							return _gradient.Evaluate(_gamma.Evaluate(t));
-						}
+					{
+						float t = (float)c.y / c.height;
+						return _gradient.Evaluate(_gamma.Evaluate(t));
+					}
 
 					case UV.Circle:
-						{
-							float diameter = Mathf.Min(c.width, c.height);
-							Vector2 center = new Vector2(diameter / 2, diameter / 2);
-							float radius = diameter / 2f;
-							Vector2 point = new Vector2(c.x, c.y);
-							float distance = Vector2.Distance(point, center);
-							float t = 1 - (distance / radius);
-							return _gradient.Evaluate(_gamma.Evaluate(t));
-						}
+					{
+						float diameter = Mathf.Min(c.width, c.height);
+						Vector2 center = new Vector2(diameter / 2, diameter / 2);
+						float radius = diameter / 2f;
+						Vector2 point = new Vector2(c.x, c.y);
+						float distance = Vector2.Distance(point, center);
+						float t = 1 - (distance / radius);
+						return _gradient.Evaluate(_gamma.Evaluate(t));
+					}
 
 					case UV.GradientMap:
+					{
+						float t = 0;
+						switch (_source)
 						{
-							float t = 0;
-							switch (_source)
+							case GradientMapSource.Grayscale:
 							{
-								case GradientMapSource.Grayscale:
-									{
-										t = c.color.ToGrayscale();
-										break;
-									}
-
-								case GradientMapSource.Channel:
-									{
-										t = c.color[(int)_channel];
-										break;
-									}
-
-								default: throw new ArgumentOutOfRangeException();
+								t = c.color.ToGrayscale();
+								break;
 							}
 
-							return _gradient.Evaluate(_gamma.Evaluate(t));
+							case GradientMapSource.Channel:
+							{
+								t = c.color[(int)_channel];
+								break;
+							}
+
+							default: throw new ArgumentOutOfRangeException();
 						}
+
+						return _gradient.Evaluate(_gamma.Evaluate(t));
+					}
 
 					case UV.Frame:
-						{
-							float t = Mathf.Min(c.x, c.width - c.x, c.y, c.height - c.y) / (float)Mathf.Min(c.width, c.height);
+					{
+						float t = Mathf.Min(c.x, c.width - c.x, c.y, c.height - c.y) / (float)Mathf.Min(c.width, c.height);
 
-							return _gradient.Evaluate(_gamma.Evaluate(t));
-						}
+						return _gradient.Evaluate(_gamma.Evaluate(t));
+					}
 
 					default: throw new ArgumentOutOfRangeException();
 				}
+			}
+
+			public enum GradientMapSource
+			{
+				Grayscale,
+				Channel,
 			}
 
 			public enum UV
@@ -209,28 +217,30 @@ namespace GameJam.Plugins.Procedural
 				Circle,
 				GradientMap,
 				Frame,
+				TextureUV,
+				Channels,
 			}
+		}
 
-			public enum GradientMapSource
-			{
-				Grayscale,
-				Channel,
-			}
+		[Serializable]
+		public class ColorCurves : Layer
+		{
+			[SerializeField, HorizontalGroup, HideLabel] AnimationCurve R = AnimationCurve.Linear(0, 0, 1, 1);
+			[SerializeField, HorizontalGroup, HideLabel] AnimationCurve G = AnimationCurve.Linear(0, 0, 1, 1);
+			[SerializeField, HorizontalGroup, HideLabel] AnimationCurve B = AnimationCurve.Linear(0, 0, 1, 1);
+			[SerializeField, HorizontalGroup, HideLabel] AnimationCurve A = AnimationCurve.Linear(0, 0, 1, 1);
 
-			public enum RGBA
+			protected override Vector4 ProcessPixel(Context c)
 			{
-				R,
-				G,
-				B,
-				A
+				return new Vector4(R.Evaluate(c.color[0]), G.Evaluate(c.color[1]), B.Evaluate(c.color[2]), A.Evaluate(c.color[3]));
 			}
 		}
 
 		[Serializable]
 		public class TextureLayer : Layer
 		{
-			[SerializeField] protected Texture2D _texture;
-			[SerializeField] protected Vector4 _tileAndOffset = new(1, 1, 0, 0);
+			[SerializeField, Required] protected Texture2D _texture;
+			[SerializeField, Required] protected Vector4 _tileAndOffset = new(1, 1, 0, 0);
 			protected Texture2D _textureReadable;
 
 			public override void Process(Context c)
@@ -314,6 +324,50 @@ namespace GameJam.Plugins.Procedural
 		// 	protected override Color ProcessPixel(Context c) => colors[c.index];
 		// }
 
+		[Serializable]
+		public class ChromaticAberration : Layer
+		{
+			[SerializeField] private UV _uv;
+			[SerializeField] private int _pixelDelta = 1;
+
+			protected override Vector4 ProcessPixel(Context c)
+			{
+				int delta = _pixelDelta;
+
+				switch (_uv)
+				{
+					case UV.Default:
+					{
+						break;
+					}
+
+					case UV.Center:
+					{
+						float t = Mathf.Min(c.x, c.width - c.x, c.y, c.height - c.y) / (float)Mathf.Min(c.width, c.height);
+						delta = Mathf.RoundToInt(Mathf.Lerp(delta, 0, t));
+						break;
+					}
+
+					default: throw new ArgumentOutOfRangeException();
+				}
+
+				float x = c.Colors[c.GetIndex(c.x - delta, c.y)].x;
+				float y = c.Colors[c.index].y;
+				float z = c.Colors[c.GetIndex(c.x + delta, c.y)].z;
+				float w = c.Colors[c.index].w;
+
+				w = Mathf.Max(Mathf.Min(x, y, z), w);
+
+				return new Vector4(x, y, z, w);
+			}
+
+			public enum UV
+			{
+				Default,
+				Center,
+			}
+		}
+
 		public interface ILayer
 		{
 			void Process(Context context);
@@ -323,7 +377,7 @@ namespace GameJam.Plugins.Procedural
 		public abstract class Layer : ILayer
 		{
 			[SerializeField] protected bool _skip;
-			[SerializeField, Range(0, 1)] protected float _alpha = 1;
+			[SerializeField, PropertyRange(0, 1)] protected float _alpha = 1;
 			[SerializeField] protected Blend _blend;
 			[SerializeField] protected Vector2 _offset;
 
@@ -345,31 +399,31 @@ namespace GameJam.Plugins.Procedural
 						switch (_blend)
 						{
 							case Blend.Set:
-								{
-									c.Colors[index] = result;
-									break;
-								}
+							{
+								c.Colors[index] = result;
+								break;
+							}
 
 							case Blend.Alpha:
-								{
-									c.Colors[index] = Vector4.Lerp(before, result, result.w * _alpha);
-									break;
-								}
+							{
+								c.Colors[index] = Vector4.Lerp(before, result, result.w * _alpha);
+								break;
+							}
 
 							case Blend.Additive:
-								{
-									c.Colors[index] += result * result.w * _alpha;
-									c.Colors[index] = Vector4.Lerp(before, c.Colors[index], _alpha);
-									break;
-								}
+							{
+								c.Colors[index] += result * result.w * _alpha;
+								c.Colors[index] = Vector4.Lerp(before, c.Colors[index], _alpha);
+								break;
+							}
 
 							case Blend.Multiply:
-								{
-									result = c.Colors[index].Multiply(result);
-									c.Colors[index] = Vector4.Lerp(before, result, _alpha);
+							{
+								result = c.Colors[index].Multiply(result);
+								c.Colors[index] = Vector4.Lerp(before, result, _alpha);
 
-									break;
-								}
+								break;
+							}
 
 							default: throw new ArgumentOutOfRangeException();
 						}
@@ -421,6 +475,11 @@ namespace GameJam.Plugins.Procedural
 					Colors[i] = background;
 				}
 			}
+
+			public int GetIndex(float x, float y)
+			{
+				return (int)Mathf.Repeat(y * width + x, length);
+			}
 		}
 
 		public enum PoT
@@ -438,9 +497,17 @@ namespace GameJam.Plugins.Procedural
 			_1024 = 1024,
 		}
 
+		public enum RGBA
+		{
+			R,
+			G,
+			B,
+			A
+		}
+
 		private void OnValidate()
 		{
-#if UNITY_EDITOR
+			#if UNITY_EDITOR
 			string assetPath = AssetDatabase.GetAssetPath(this);
 
 			if (!_texture && this != null)
@@ -448,6 +515,8 @@ namespace GameJam.Plugins.Procedural
 				AssetDatabase.ImportAsset(assetPath);
 				_texture = AssetDatabase.LoadAssetAtPath<Texture2D>(assetPath);
 			}
+
+			#endif
 
 			if (!_texture)
 			{
@@ -477,10 +546,13 @@ namespace GameJam.Plugins.Procedural
 					_texture.Reinitialize(_context.width, _context.height);
 				}
 
+				#if UNITY_EDITOR
 				_texture.alphaIsTransparency = true;
+				#endif
 				Execute();
 			}
 
+#if UNITY_EDITOR
 			if (!EditorUtility.IsPersistent(this)) return;
 			if (AssetDatabase.IsSubAsset(_texture)) return;
 			if (AssetDatabase.LoadAssetAtPath<Texture2D>(assetPath)) return;
@@ -493,7 +565,7 @@ namespace GameJam.Plugins.Procedural
 #endif
 		}
 
-		[ContextMenu("Export to .png")]
+		[Button, ContextMenu("Export to .png")]
 		private void ExportToPNG()
 		{
 	#if UNITY_EDITOR
@@ -523,6 +595,8 @@ namespace GameJam.Plugins.Procedural
 			Selection.activeObject = texture;
 	#endif
 		}
+
+		[NonSerialized] private Context _context;
 		#if UNITY_EDITOR
 
 		#endif
